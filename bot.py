@@ -1,4 +1,3 @@
-# bot.py
 import os
 import sys
 import requests
@@ -21,10 +20,10 @@ print(f"📦 Python executable: {sys.executable}")
 # Загружаем переменные из .env
 load_dotenv()
 
-# Получаем токены (удаляем пробелы)
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN").strip()
-YANDEX_API_KEY = os.getenv("YANDEX_API_KEY").strip()
-FOLDER_ID = os.getenv("FOLDER_ID").strip()
+# Получаем токены (БЕЗ .strip() - это важно!)
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+YANDEX_API_KEY = os.getenv("YANDEX_API_KEY")
+FOLDER_ID = os.getenv("FOLDER_ID")
 
 # Читаем контекст школы
 def load_school_context():
@@ -42,7 +41,6 @@ CHAT_HISTORY = {}
 
 # Функция для запроса к YandexGPT с историей
 async def ask_yandex_gpt(user_question: str, chat_history: list) -> str:
-    # ✅ Исправлено: убраны пробелы в URL
     url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
     headers = {
         "Authorization": f"Api-Key {YANDEX_API_KEY}",
@@ -113,7 +111,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"🤖 Бот: {answer}")
     await update.message.reply_text(answer)
 
-# Обработка ошибок
+# Обработка ошибки
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(f"Ошибка при обработке обновления {update}: {context.error}")
 
@@ -134,13 +132,12 @@ def main():
 
         PORT = int(os.environ.get("PORT", 10000))
 
-        # 🚀 Формируем URL вебхука
+        # Формируем URL вебхука
         service_name = os.getenv('RENDER_SERVICE_NAME')
         if service_name:
             webhook_url = f"https://{service_name}.onrender.com/{TELEGRAM_TOKEN}"
         else:
-            # ✅ Исправлено: убраны пробелы
-            webhook_url = f"https://your-domain.com/{TELEGRAM_TOKEN}"  # для локальной разработки
+            webhook_url = f"https://your-domain.com/{TELEGRAM_TOKEN}"
 
         logger.info(f"🚀 Запуск бота на порту {PORT}")
         logger.info(f"🌐 Webhook URL: {webhook_url}")
