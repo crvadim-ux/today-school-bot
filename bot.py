@@ -6,6 +6,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
+import asyncio
 
 # Настройка логирования
 logging.basicConfig(
@@ -148,10 +149,14 @@ def main():
         logger.error("❌ Ошибка: не все токены указаны в .env")
         return
 
+    asyncio.run(start_bot())
+
+async def start_bot():
+    global application
     logger.info("✅ Бот запускается...")
 
     application = Application.builder().token(TELEGRAM_TOKEN).build()
-    application.initialize()  # Инициализация приложения
+    await application.initialize()  # Инициализация приложения с await
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
