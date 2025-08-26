@@ -53,7 +53,7 @@ async def ask_yandex_gpt(user_question: str, chat_history: list) -> str:
             "role": "system",
             "text": f"Ты — помощник детской языковой школы. "
                     f"Отвечай только на основе этой информации:\n{SCHOOL_CONTEXT}\n"
-                    f"Если вопрос не по теме — скажи, что можешь помочь только с вопросами о школе. "
+                    f"Если вопрос не по теме — скажи, что могу помочь только с вопросами о школе. "
                     f"Не выдумывай. Отвечай кратко, по делу."
         }
     ]
@@ -122,9 +122,16 @@ app = FastAPI()
 # Обработка вебхука
 @app.post(f"/{TELEGRAM_TOKEN}")
 async def webhook(request: Request):
-    update = Update.de_json(await request.json(), application)
+    update_data = await request.json()
+    update = Update.de_json(update_data, application)
+    logger.info(f"Получен вебхук: {update}")
     await application.process_update(update)
     return {"ok": True}
+
+# Диагностический маршрут
+@app.get("/")
+async def root():
+    return {"message": "Бот запущен, вебхук настроен на /<token>"}
 
 # Запуск бота
 def main():
