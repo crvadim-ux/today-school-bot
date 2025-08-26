@@ -132,63 +132,111 @@ async def webhook(request: Request):
     if application is None:
         logger.error("❌ Application не инициализировано")
         return {"error": "Application not initialized"}, 500
-    update_data = await request.json()
-    update = Update.de_json(update_data, application)
-    logger.info(f"Получен вебхук: {update}")
-    await application.process_update(update)
-    return {"ok": True}
+    
+    try:
+        update_data = await request.json()
+        # Используем application.bot для парсинга обновления
+        update = Update.de_json(update_data, application.bot)
+        logger.info(f"Получен вебхук: {update}")
+        
+        # Обрабатываем обновление через application.update_queue
+        await application.update_queue.put(update)
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"❌ Ошибка в webhook: {e}")
+        return {"error": str(e)}, 500
 
 # Диагностический маршрут
 @app.get("/")
 async def root():
     return {"message": "Бот запущен, вебхук настроен на /webhook"}
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "bot_initialized": application is not None}
+
 # Запуск бота
-def main():
-    global application
-    if not all([TELEGRAM_TOKEN, YANDEX_API_KEY, FOLDER_ID]):
-        logger.error("❌ Ошибка: не все токены указаны в .env")
-        return
-
-    asyncio.run(start_bot())
-
 async def start_bot():
     global application
     logger.info("✅ Бот запускается...")
 
+    # Инициализируем приложение
     application = Application.builder().token(TELEGRAM_TOKEN).build()
-    await application.initialize()  # Инициализация приложения с await
-
+    
+    # Добавляем обработчики
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
 
+    # Инициализируем приложение
+    await application.initialize()
+    
+    # Запускаем polling (для обработки обновлений из очереди)
+    await application.start()
+    
+    # Устанавливаем вебхук
     PORT = int(os.environ.get("PORT", 10000))
-
-    # Формируем URL вебхука с фиксированным путём
     service_name = os.getenv('RENDER_SERVICE_NAME', 'today-school-bot-2')
     webhook_url = f"https://{service_name}.onrender.com{WEBHOOK_PATH}"
 
     logger.info(f"🚀 Запуск бота на порту {PORT}")
     logger.info(f"🌐 Webhook URL: {webhook_url}")
 
-    # Устанавливаем вебхук
     try:
-        response = requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook",
-            data={"url": webhook_url}
-        )
-        response.raise_for_status()
+        # Устанавливаем вебхук через API Telegram
+        async with application.bot:
+            await application.bot.set_webhook(webhook_url)
         logger.info("✅ Webhook успешно установлен")
     except Exception as e:
         logger.error(f"❌ Ошибка при установке вебхука: {e}")
         return
 
-    # Запускаем вебхук
+async def shutdown():
+    """Корректное завершение работы"""
+    global application
+    if application:
+        await application.stop()
+        await application.shutdown()
+
+def main():
+    if not all([TELEGRAM_TOKEN, YANDEX_API_KEY, FOLDER_ID]):
+        logger.error("❌ Ошибка: не все токены указаны в .env")
+        return
+
+    # Запускаем бота и сервер
     import uvicorn
-    config = uvicorn.Config(app, host="0.0.0.0", port=PORT)
-    server = uvicorn.Server(config=config)
-    await server.serve()  # Запуск сервера
+    
+    # Создаем и запускаем сервер
+    config = uvicorn.Config(
+        app, 
+        host="0.0.0.0", 
+        port=int(os.environ.get("PORT", 10000)),
+        log_level="info"
+    )
+    server = uvicorn.Server(config)
+    
+    # Запускаем бота и сервер параллельно
+    async def run_all():
+        # Запускаем бота
+        bot_task = asyncio.create_task(start_bot())
+        
+        # Даем время боту инициализироваться
+        await asyncio.sleep(2)
+        
+        # Запускаем сервер
+        await server.serve()
+        
+        # Ждем завершения задач
+        await bot_task
+    
+    try:
+        asyncio.run(run_all())
+    except KeyboardInterrupt:
+        logger.info("🛑 Остановка бота...")
+        asyncio.run(shutdown())
+    except Exception as e:
+        logger.error(f"❌ Критическая ошибка: {e}")
+        asyncio.run(shutdown())
 
 if __name__ == "__main__":
     main()
