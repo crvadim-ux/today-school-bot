@@ -1,12 +1,14 @@
-import sys
-print(f"🐍 Python version: {sys.version}")
-print(f"📦 Python executable: {sys.executable}")
 # bot.py
 import os
+import sys
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
+
+# Проверка версии Python
+print(f"🐍 Python version: {sys.version}")
+print(f"📦 Python executable: {sys.executable}")
 
 # Загружаем переменные из .env
 load_dotenv()
@@ -32,7 +34,6 @@ CHAT_HISTORY = {}
 
 # Функция для запроса к YandexGPT с историей
 async def ask_yandex_gpt(user_question: str, chat_history: list) -> str:
-    # 🔴 ИСПРАВЛЕНО: убран лишний пробел в конце URL
     url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
     headers = {
         "Authorization": f"Api-Key {YANDEX_API_KEY}",
@@ -123,20 +124,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(answer)
 
-# Запуск бота
+# Запуск бота через Webhook
 def main():
     if not all([TELEGRAM_TOKEN, YANDEX_API_KEY, FOLDER_ID]):
         print("❌ Ошибка: не все токены указаны в .env")
         return
 
     print("✅ Бот запускается...")
+
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен и слушает сообщения...")
-    app.run_polling(drop_pending_updates=True)
+    PORT = int(os.environ.get("PORT", 10000))
+    print(f"🚀 Бот запущен на порту {PORT}...")
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TELEGRAM_TOKEN,
+        webhook_url=f"https://today-school-bot.onrender.com/{TELEGRAM_TOKEN}"
+    )
 
 if __name__ == "__main__":
     main()
