@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: today-school-bot
+    runtime: python
+    runtimeVersion: python-3.11.9
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: TELEGRAM_TOKEN
+        fromSecret: TELEGRAM_TOKEN
+      - key: YANDEX_API_KEY
+        fromSecret: YANDEX_API_KEY
+      - key: FOLDER_ID
+        fromSecret: FOLDER_ID
+    secrets:
+      - TELEGRAM_TOKEN
+      - YANDEX_API_KEY
+      - FOLDER_ID
