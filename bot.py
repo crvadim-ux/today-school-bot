@@ -185,11 +185,9 @@ async def start_bot():
 
     # Запускаем вебхук
     import uvicorn
-    try:
-        uvicorn.run(app, host="0.0.0.0", port=PORT)
-    except KeyboardInterrupt:
-        application.shutdown()  # Завершение работы приложения
-        logger.info("✅ Бот завершил работу")
+    config = uvicorn.Config(app, host="0.0.0.0", port=PORT)
+    server = uvicorn.Server(config)
+    await server.serve()
 
 if __name__ == "__main__":
     main()
