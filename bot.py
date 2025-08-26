@@ -176,8 +176,17 @@ async def start_bot():
     
     # Устанавливаем вебхук
     PORT = int(os.environ.get("PORT", 10000))
-    service_name = os.getenv('RENDER_SERVICE_NAME', 'today-school-bot-2')
-    webhook_url = f"https://{service_name}.onrender.com{WEBHOOK_PATH}"
+    
+    # Получаем хост из переменных окружения Render
+    render_external_host = os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
+    if render_external_host:
+        # Убираем протокол, если есть
+        service_name = render_external_host.replace('https://', '').replace('http://', '')
+    else:
+        # Fallback для локального тестирования
+        service_name = 'today-school-bot-2.onrender.com'
+
+    webhook_url = f"https://{service_name}{WEBHOOK_PATH}"
 
     logger.info(f"🚀 Запуск бота на порту {PORT}")
     logger.info(f"🌐 Webhook URL: {webhook_url}")
