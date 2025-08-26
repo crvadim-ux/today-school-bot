@@ -1,3 +1,4 @@
+fastapi
 python-telegram-bot[webhooks]==22.3
 requests==2.32.5
 python-dotenv==1.1.1
