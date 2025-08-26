@@ -132,12 +132,12 @@ def main():
 
         PORT = int(os.environ.get("PORT", 10000))
 
-        # Формируем URL вебхука
+        # Формируем URL вебхука - ИСПРАВЛЕНО!
         service_name = os.getenv('RENDER_SERVICE_NAME')
         if service_name:
-            webhook_url = f"https://{service_name}.onrender.com/{TELEGRAM_TOKEN}"
+            webhook_url = f"https://{service_name}.onrender.com"  # ✅ Без токена в URL!
         else:
-            webhook_url = f"https://your-domain.com/{TELEGRAM_TOKEN}"
+            webhook_url = "https://your-domain.com"  # ✅ Без токена в URL!
 
         logger.info(f"🚀 Запуск бота на порту {PORT}")
         logger.info(f"🌐 Webhook URL: {webhook_url}")
@@ -145,8 +145,8 @@ def main():
         app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
-            url_path=TELEGRAM_TOKEN,
-            webhook_url=webhook_url,
+            url_path=TELEGRAM_TOKEN,  # ✅ Токен ТОЛЬКО здесь
+            webhook_url=webhook_url,  # ✅ Базовый URL без токена
             drop_pending_updates=True
         )
 
