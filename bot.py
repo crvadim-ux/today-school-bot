@@ -125,7 +125,6 @@ app = FastAPI()
 
 # Обработка вебхука с фиксированным путём
 WEBHOOK_PATH = "/webhook"
-
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request):
     global application
@@ -135,12 +134,11 @@ async def webhook(request: Request):
     
     try:
         update_data = await request.json()
-        # Используем application.bot для парсинга обновления
         update = Update.de_json(update_data, application.bot)
         logger.info(f"Получен вебхук: {update}")
         
-        # Обрабатываем обновление через application.update_queue
-        await application.update_queue.put(update)
+        # Обрабатываем обновление напрямую
+        await application.process_update(update)
         return {"ok": True}
     except Exception as e:
         logger.error(f"❌ Ошибка в webhook: {e}")
@@ -171,41 +169,17 @@ async def start_bot():
     # Инициализируем приложение
     await application.initialize()
     
-    # Запускаем polling (для обработки обновлений из очереди)
+    # Запускаем приложение (без polling, так как используем вебхук)
     await application.start()
-    
-    # Устанавливаем вебхук
-    PORT = int(os.environ.get("PORT", 10000))
-    
-    # Получаем хост из переменных окружения Render
-    render_external_host = os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
-    if render_external_host:
-        # Убираем протокол, если есть
-        service_name = render_external_host.replace('https://', '').replace('http://', '')
-    else:
-        # Fallback для локального тестирования
-        service_name = 'today-school-bot-2.onrender.com'
 
-    webhook_url = f"https://{service_name}{WEBHOOK_PATH}"
-
-    logger.info(f"🚀 Запуск бота на порту {PORT}")
-    logger.info(f"🌐 Webhook URL: {webhook_url}")
-
-    try:
-        # Устанавливаем вебхук через API Telegram
-        async with application.bot:
-            await application.bot.set_webhook(webhook_url)
-        logger.info("✅ Webhook успешно установлен")
-    except Exception as e:
-        logger.error(f"❌ Ошибка при установке вебхука: {e}")
-        return
-
+# Корректное завершение работы
 async def shutdown():
     """Корректное завершение работы"""
     global application
     if application:
         await application.stop()
         await application.shutdown()
+        logger.info("✅ Бот завершил работу")
 
 def main():
     if not all([TELEGRAM_TOKEN, YANDEX_API_KEY, FOLDER_ID]):
