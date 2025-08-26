@@ -120,11 +120,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(f"Ошибка при обработке обновления {update}: {context.error}")
 
-# Создаем FastAPI приложение
+# Создаём FastAPI приложение
 app = FastAPI()
 
-# Обработка вебхука с фиксированным путем
+# Обработка вебхука с фиксированным путём
 WEBHOOK_PATH = "/webhook"
+
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request):
     global application
@@ -164,7 +165,7 @@ async def start_bot():
 
     PORT = int(os.environ.get("PORT", 10000))
 
-    # Формируем URL вебхука с фиксированным путем
+    # Формируем URL вебхука с фиксированным путём
     service_name = os.getenv('RENDER_SERVICE_NAME', 'today-school-bot-2')
     webhook_url = f"https://{service_name}.onrender.com{WEBHOOK_PATH}"
 
@@ -186,3 +187,8 @@ async def start_bot():
     # Запускаем вебхук
     import uvicorn
     config = uvicorn.Config(app, host="0.0.0.0", port=PORT)
+    server = uvicorn.Server(config=config)
+    await server.serve()  # Запуск сервера
+
+if __name__ == "__main__":
+    main()
