@@ -4,6 +4,7 @@ import requests
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 
 # Настройка логирования
@@ -20,7 +21,7 @@ print(f"📦 Python executable: {sys.executable}")
 # Загружаем переменные из .env
 load_dotenv()
 
-# Получаем токены (БЕЗ .strip() - это важно!)
+# Получаем токены
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 YANDEX_API_KEY = os.getenv("YANDEX_API_KEY")
 FOLDER_ID = os.getenv("FOLDER_ID")
@@ -115,6 +116,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(f"Ошибка при обработке обновления {update}: {context.error}")
 
+# Создаем FastAPI приложение
+app = FastAPI()
+
+# Обработка вебхука
+@app.post(f"/{TELEGRAM_TOKEN}")
+async def webhook(request: Request):
+    update = Update.de_json(await request.json(), application)
+    await application.process_update(update)
+    return {"ok": True}
+
 # Запуск бота
 def main():
     if not all([TELEGRAM_TOKEN, YANDEX_API_KEY, FOLDER_ID]):
@@ -123,39 +134,25 @@ def main():
 
     logger.info("✅ Бот запускается...")
 
-    try:
-        app = Application.builder().token(TELEGRAM_TOKEN).build()
+    global application
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        app.add_error_handler(error_handler)
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_error_handler(error_handler)
 
-        PORT = int(os.environ.get("PORT", 10000))
+    PORT = int(os.environ.get("PORT", 10000))
 
-        # Формируем URL вебхука - ИСПРАВЛЕНО!
-        service_name = os.getenv('RENDER_SERVICE_NAME')
-        if service_name:
-            webhook_url = f"https://{service_name}.onrender.com"  # ✅ Без токена в URL!
-        else:
-            webhook_url = "https://your-domain.com"  # ✅ Без токена в URL!
+    # Формируем URL вебхука
+    service_name = os.getenv('RENDER_SERVICE_NAME', 'today-school-bot-2')
+    webhook_url = f"https://{service_name}.onrender.com/{TELEGRAM_TOKEN}"
 
-        logger.info(f"🚀 Запуск бота на порту {PORT}")
-        logger.info(f"🌐 Webhook URL: {webhook_url}")
+    logger.info(f"🚀 Запуск бота на порту {PORT}")
+    logger.info(f"🌐 Webhook URL: {webhook_url}")
 
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=TELEGRAM_TOKEN,  # ✅ Токен ТОЛЬКО здесь
-            webhook_url=webhook_url,  # ✅ Базовый URL без токена
-            drop_pending_updates=True
-        )
-
-    except Exception as e:
-        logger.error(f"❌ Критическая ошибка при запуске бота: {e}")
-        # Fallback на polling для разработки
-        if not os.getenv('RENDER_SERVICE_NAME'):
-            logger.info("🔄 Попытка запуска в режиме polling...")
-            app.run_polling(drop_pending_updates=True)
+    # Запускаем вебхук
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
     main()
