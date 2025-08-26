@@ -21,10 +21,10 @@ print(f"📦 Python executable: {sys.executable}")
 # Загружаем переменные из .env
 load_dotenv()
 
-# Получаем токены
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-YANDEX_API_KEY = os.getenv("YANDEX_API_KEY")
-FOLDER_ID = os.getenv("FOLDER_ID")
+# Получаем токены (удаляем пробелы)
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN").strip()
+YANDEX_API_KEY = os.getenv("YANDEX_API_KEY").strip()
+FOLDER_ID = os.getenv("FOLDER_ID").strip()
 
 # Читаем контекст школы
 def load_school_context():
@@ -42,7 +42,8 @@ CHAT_HISTORY = {}
 
 # Функция для запроса к YandexGPT с историей
 async def ask_yandex_gpt(user_question: str, chat_history: list) -> str:
-    url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"  # ✅ Убраны пробелы
+    # ✅ Исправлено: убраны пробелы в URL
+    url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
     headers = {
         "Authorization": f"Api-Key {YANDEX_API_KEY}",
         "Content-Type": "application/json"
@@ -138,6 +139,7 @@ def main():
         if service_name:
             webhook_url = f"https://{service_name}.onrender.com/{TELEGRAM_TOKEN}"
         else:
+            # ✅ Исправлено: убраны пробелы
             webhook_url = f"https://your-domain.com/{TELEGRAM_TOKEN}"  # для локальной разработки
 
         logger.info(f"🚀 Запуск бота на порту {PORT}")
