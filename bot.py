@@ -151,6 +151,7 @@ def main():
     logger.info("✅ Бот запускается...")
 
     application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application.initialize()  # Инициализация приложения
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
@@ -179,7 +180,11 @@ def main():
 
     # Запускаем вебхук
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=PORT)
+    except KeyboardInterrupt:
+        application.shutdown()  # Завершение работы приложения
+        logger.info("✅ Бот завершил работу")
 
 if __name__ == "__main__":
     main()
