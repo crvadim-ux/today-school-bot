@@ -26,6 +26,9 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 YANDEX_API_KEY = os.getenv("YANDEX_API_KEY")
 FOLDER_ID = os.getenv("FOLDER_ID")
 
+# Глобальная инициализация приложения
+application = None
+
 # Читаем контекст школы
 def load_school_context():
     try:
@@ -119,9 +122,14 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 # Создаем FastAPI приложение
 app = FastAPI()
 
-# Обработка вебхука
-@app.post(f"/{TELEGRAM_TOKEN}")
+# Обработка вебхука с фиксированным путем
+WEBHOOK_PATH = "/webhook"
+@app.post(WEBHOOK_PATH)
 async def webhook(request: Request):
+    global application
+    if application is None:
+        logger.error("❌ Application не инициализировано")
+        return {"error": "Application not initialized"}, 500
     update_data = await request.json()
     update = Update.de_json(update_data, application)
     logger.info(f"Получен вебхук: {update}")
@@ -131,17 +139,17 @@ async def webhook(request: Request):
 # Диагностический маршрут
 @app.get("/")
 async def root():
-    return {"message": "Бот запущен, вебхук настроен на /<token>"}
+    return {"message": "Бот запущен, вебхук настроен на /webhook"}
 
 # Запуск бота
 def main():
+    global application
     if not all([TELEGRAM_TOKEN, YANDEX_API_KEY, FOLDER_ID]):
         logger.error("❌ Ошибка: не все токены указаны в .env")
         return
 
     logger.info("✅ Бот запускается...")
 
-    global application
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -150,12 +158,24 @@ def main():
 
     PORT = int(os.environ.get("PORT", 10000))
 
-    # Формируем URL вебхука
+    # Формируем URL вебхука с фиксированным путем
     service_name = os.getenv('RENDER_SERVICE_NAME', 'today-school-bot-2')
-    webhook_url = f"https://{service_name}.onrender.com/{TELEGRAM_TOKEN}"
+    webhook_url = f"https://{service_name}.onrender.com{WEBHOOK_PATH}"
 
     logger.info(f"🚀 Запуск бота на порту {PORT}")
     logger.info(f"🌐 Webhook URL: {webhook_url}")
+
+    # Устанавливаем вебхук
+    try:
+        response = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook",
+            data={"url": webhook_url}
+        )
+        response.raise_for_status()
+        logger.info("✅ Webhook успешно установлен")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при установке вебхука: {e}")
+        return
 
     # Запускаем вебхук
     import uvicorn
